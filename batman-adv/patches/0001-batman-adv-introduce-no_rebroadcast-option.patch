@@ -102,7 +102,6 @@ index 901a84d..1f42679 100644
  /* Use this, if you have customized show and store functions for vlan attrs */
  #define BATADV_ATTR_VLAN(_name, _mode, _show, _store)	\
  struct batadv_attribute batadv_attr_vlan_##_name = {	\
- 
 @@ -215,6 +227,52 @@ ssize_t batadv_show_vlan_##_name(struct kobject *kobj,			\
  	static BATADV_ATTR_VLAN(_name, _mode, batadv_show_vlan_##_name,	\
  				batadv_store_vlan_##_name)
