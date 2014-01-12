@@ -26,18 +26,18 @@ wisely and at your own risk!
 
 Signed-off-by: Linus Lüssing <linus.luessing@web.de>
 ---
- hard-interface.c           |    2 ++
- send.c                     |    4 +++
- sysfs-class-net-batman-adv |   10 ++++++++
- sysfs.c                    |   59 ++++++++++++++++++++++++++++++++++++++++++++
- types.h                    |    1 +
- 5 files changed, 76 insertions(+)
+ hard-interface.c           |  2 ++
+ send.c                     |  4 ++++
+ sysfs-class-net-batman-adv | 10 ++++++++
+ sysfs.c                    | 60 ++++++++++++++++++++++++++++++++++++++++++++++
+ types.h                    |  1 +
+ 5 files changed, 77 insertions(+)
 
 diff --git a/hard-interface.c b/hard-interface.c
-index c478e6b..e0afd19 100644
+index 6792e03..8cbab5b 100644
 --- a/hard-interface.c
 +++ b/hard-interface.c
-@@ -600,6 +600,8 @@ batadv_hardif_add_interface(struct net_device *net_dev)
+@@ -582,6 +582,8 @@ batadv_hardif_add_interface(struct net_device *net_dev)
  	/* extra reference for return */
  	atomic_set(&hard_iface->refcount, 2);
  
@@ -47,22 +47,22 @@ index c478e6b..e0afd19 100644
  	list_add_tail_rcu(&hard_iface->list, &batadv_hardif_list);
  
 diff --git a/send.c b/send.c
-index e9ff8d8..05287e6 100644
+index b0a3d76..254f7ae 100644
 --- a/send.c
 +++ b/send.c
-@@ -272,6 +272,10 @@ static void batadv_send_outstanding_bcast_packet(struct work_struct *work)
+@@ -496,6 +496,10 @@ static void batadv_send_outstanding_bcast_packet(struct work_struct *work)
  		if (forw_packet->num_packets >= hard_iface->num_bcasts)
  			continue;
  
 +		if (atomic_read(&hard_iface->no_rebroadcast) &&
-+		    forw_packet->skb->dev == hard_iface->net_dev)
-+			continue;
++			forw_packet->skb->dev == hard_iface->net_dev)
++				continue;
 +
  		/* send a copy of the saved skb */
  		skb1 = skb_clone(forw_packet->skb, GFP_ATOMIC);
  		if (skb1)
 diff --git a/sysfs-class-net-batman-adv b/sysfs-class-net-batman-adv
-index bdc0070..88f6f70 100644
+index 7f34a95..a9fd00e 100644
 --- a/sysfs-class-net-batman-adv
 +++ b/sysfs-class-net-batman-adv
 @@ -13,3 +13,13 @@ Description:
@@ -80,81 +80,81 @@ index bdc0070..88f6f70 100644
 +                or wired links. Using this option wrongly is going to
 +                break your mesh network, use at your own risk!
 diff --git a/sysfs.c b/sysfs.c
-index 929e304..19e0930 100644
+index 901a84d..1f42679 100644
 --- a/sysfs.c
 +++ b/sysfs.c
-@@ -53,6 +53,17 @@ static char *batadv_uev_type_str[] = {
+@@ -101,6 +101,18 @@ static char *batadv_uev_type_str[] = {
  	"gw"
  };
  
 +/* Use this, if you have customized show and store functions
 + * for hard interface attrs
 + */
-+#define BATADV_ATTR_HIF(_name, _mode, _show, _store)	\
-+struct batadv_attribute batadv_attr_hif_##_name = {	\
-+	.attr = {.name = __stringify(_name),		\
-+		 .mode = _mode },			\
-+	.show   = _show,				\
-+	.store  = _store,				\
++#define BATADV_ATTR_HIF(_name, _mode, _show, _store)        \
++struct batadv_attribute batadv_attr_hif_##_name = {        \
++        .attr = {.name = __stringify(_name),                \
++                 .mode = _mode },                        \
++        .show   = _show,                                \
++        .store  = _store,                                \
 +};
 +
- /* Use this, if you have customized show and store functions */
- #define BATADV_ATTR(_name, _mode, _show, _store)	\
- struct batadv_attribute batadv_attr_##_name = {		\
-@@ -123,6 +134,52 @@ ssize_t batadv_show_##_name(struct kobject *kobj,			\
- 			   batadv_store_##_name)
+ /* Use this, if you have customized show and store functions for vlan attrs */
+ #define BATADV_ATTR_VLAN(_name, _mode, _show, _store)	\
+ struct batadv_attribute batadv_attr_vlan_##_name = {	\
+@@ -215,6 +227,52 @@ ssize_t batadv_show_vlan_##_name(struct kobject *kobj,			\
+ 	static BATADV_ATTR_VLAN(_name, _mode, batadv_show_vlan_##_name,	\
+ 				batadv_store_vlan_##_name)
  
- 
-+#define BATADV_ATTR_HIF_STORE_BOOL(_name, _post_func)			\
-+ssize_t batadv_store_hif_##_name(struct kobject *kobj,			\
-+				 struct attribute *attr, char *buff,	\
-+				 size_t count)				\
-+{									\
-+	struct net_device *net_dev = batadv_kobj_to_netdev(kobj);	\
-+	struct batadv_hard_iface *hard_iface;				\
-+	size_t res;							\
-+									\
-+	hard_iface = batadv_hardif_get_by_netdev(net_dev);		\
-+	if (!hard_iface)						\
-+		return 0;						\
-+									\
-+	res = __batadv_store_bool_attr(buff, count, _post_func,		\
-+					      attr, &hard_iface->_name,	\
-+					      hard_iface->soft_iface);	\
-+	batadv_hardif_free_ref(hard_iface);				\
-+	return res;							\
++#define BATADV_ATTR_HIF_STORE_BOOL(_name, _post_func)                        \
++ssize_t batadv_store_hif_##_name(struct kobject *kobj,                        \
++                                 struct attribute *attr, char *buff,        \
++                                 size_t count)                                \
++{                                                                        \
++        struct net_device *net_dev = batadv_kobj_to_netdev(kobj);        \
++        struct batadv_hard_iface *hard_iface;                                \
++        size_t res;                                                        \
++                                                                        \
++        hard_iface = batadv_hardif_get_by_netdev(net_dev);                \
++        if (!hard_iface)                                                \
++                return 0;                                                \
++                                                                        \
++        res = __batadv_store_bool_attr(buff, count, _post_func,                \
++                                              attr, &hard_iface->_name,        \
++                                              hard_iface->soft_iface);        \
++        batadv_hardif_free_ref(hard_iface);                                \
++        return res;                                                        \
 +}
 +
-+#define BATADV_ATTR_HIF_SHOW_BOOL(_name)				\
-+ssize_t batadv_show_hif_##_name(struct kobject *kobj,			\
-+				struct attribute *attr, char *buff)	\
-+{									\
-+	struct net_device *net_dev = batadv_kobj_to_netdev(kobj);	\
-+	struct batadv_hard_iface *hard_iface;				\
-+	size_t res;							\
-+									\
-+	hard_iface = batadv_hardif_get_by_netdev(net_dev);		\
-+	if (!hard_iface)						\
-+		return 0;						\
-+									\
-+	res = sprintf(buff, "%s\n",					\
-+		      atomic_read(&hard_iface->_name) == 0 ?		\
-+				"disabled" : "enabled");		\
-+	batadv_hardif_free_ref(hard_iface);				\
-+	return res;							\
++#define BATADV_ATTR_HIF_SHOW_BOOL(_name)                                \
++ssize_t batadv_show_hif_##_name(struct kobject *kobj,                        \
++                                struct attribute *attr, char *buff)        \
++{                                                                        \
++        struct net_device *net_dev = batadv_kobj_to_netdev(kobj);        \
++        struct batadv_hard_iface *hard_iface;                                \
++        size_t res;                                                        \
++                                                                        \
++        hard_iface = batadv_hardif_get_by_netdev(net_dev);                \
++        if (!hard_iface)                                                \
++                return 0;                                                \
++                                                                        \
++        res = sprintf(buff, "%s\n",                                        \
++                      atomic_read(&hard_iface->_name) == 0 ?                \
++                                "disabled" : "enabled");                \
++        batadv_hardif_free_ref(hard_iface);                                \
++        return res;                                                        \
 +}
 +
 +/* Use this, if you are going to turn a [name] in the vlan struct on or off */
-+#define BATADV_ATTR_HIF_BOOL(_name, _mode, _post_func)			\
-+	static BATADV_ATTR_HIF_STORE_BOOL(_name, _post_func)		\
-+	static BATADV_ATTR_HIF_SHOW_BOOL(_name)				\
-+	static BATADV_ATTR_HIF(_name, _mode, batadv_show_hif_##_name,	\
-+			       batadv_store_hif_##_name)
++#define BATADV_ATTR_HIF_BOOL(_name, _mode, _post_func)                        \
++        static BATADV_ATTR_HIF_STORE_BOOL(_name, _post_func)                \
++        static BATADV_ATTR_HIF_SHOW_BOOL(_name)                                \
++        static BATADV_ATTR_HIF(_name, _mode, batadv_show_hif_##_name,        \
++                               batadv_store_hif_##_name)
 +
  static int batadv_store_bool_attr(char *buff, size_t count,
  				  struct net_device *net_dev,
  				  const char *attr_name, atomic_t *attr)
-@@ -642,10 +699,12 @@ static ssize_t batadv_show_iface_status(struct kobject *kobj,
+@@ -750,10 +808,12 @@ static ssize_t batadv_show_iface_status(struct kobject *kobj,
  static BATADV_ATTR(mesh_iface, S_IRUGO | S_IWUSR, batadv_show_mesh_iface,
  		   batadv_store_mesh_iface);
  static BATADV_ATTR(iface_status, S_IRUGO, batadv_show_iface_status, NULL);
@@ -168,10 +168,10 @@ index 929e304..19e0930 100644
  };
  
 diff --git a/types.h b/types.h
-index b2c94e1..d1e1bb9 100644
+index dc17b2d..b368e38 100644
 --- a/types.h
 +++ b/types.h
-@@ -85,6 +85,7 @@ struct batadv_hard_iface {
+@@ -88,6 +88,7 @@ struct batadv_hard_iface {
  	struct rcu_head rcu;
  	struct batadv_hard_iface_bat_iv bat_iv;
  	struct work_struct cleanup_work;
@@ -179,6 +179,7 @@ index b2c94e1..d1e1bb9 100644
  };
  
  /**
+
 -- 
 1.7.10.4
 
